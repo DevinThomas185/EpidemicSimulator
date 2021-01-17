@@ -2,8 +2,8 @@
 Simulation of an Epidemic
 
 Requires modules:
-  matplotlib
-  names
-  termcolor
+- matplotlib
+- names
+- termcolor
   
   
