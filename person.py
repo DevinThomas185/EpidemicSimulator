@@ -29,9 +29,9 @@ probability_of_wearing_mask = 0.9
 
 def get_infection_probability(wears_mask):
     if wears_mask:
-        return 0.1
+        return 0.3
     else:
-        return 0.7
+        return 0.9
 
 
 class Person:
@@ -82,15 +82,15 @@ class Person:
         if self.condition.state != "INFECTED":
             self.generation_infected = generation
             self.condition.becomes_infected()
-            print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ")", "has been infected in generation", str(generation)+".")
+            #print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ")", "has been infected in generation", str(generation)+".")
 
     def dies(self, generation):
         self.condition.dies()
-        print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ") has died, age", str(self.age) + ", in generation", str(generation)+".")
+        #print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ") has died, age", str(self.age) + ", in generation", str(generation)+".")
 
     def recover(self, generation):
         self.condition.recover()
-        print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ")" + ", age", str(self.age) + ", is now immune as of generation", str(generation)+".")
+        #print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ")" + ", age", str(self.age) + ", is now immune as of generation", str(generation)+".")
 
     # Boolean variables to test the state
     def is_infected(self):

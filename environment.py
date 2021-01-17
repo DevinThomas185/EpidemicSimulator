@@ -102,7 +102,7 @@ class Environment:
                         and (person1.is_healthy() or person2.is_healthy()):
                     person1.maybe_infect(person2, self.generation)
 
-        # Kill people
+        # People die
         for person in self.people:
             if person.condition.state == "INFECTED":
                 person.maybe_die(self.generation)
