@@ -1,58 +1,60 @@
-from random import randint, choice
 from termcolor import colored
 from state import State
 from names import get_first_name, get_last_name
 from random import randint, choice, choices
+import variables
+
+
+def print_if(to_print, statement):
+    if to_print:
+        print(statement)
 
 
 def get_death_probability(age):
-    if age <= 19:
-        return 0.002
-    elif age <= 29:
-        return 0.002
-    elif age <= 39:
-        return 0.002
-    elif age <= 49:
-        return 0.004
-    elif age <= 59:
-        return 0.013
-    elif age <= 69:
-        return 0.036
-    elif age <= 79:
-        return 0.080
+    if age < 20:
+        return variables.death_less_than_20
+    elif age < 30:
+        return variables.death_less_than_30
+    elif age < 40:
+        return variables.death_less_than_40
+    elif age < 50:
+        return variables.death_less_than_50
+    elif age < 60:
+        return variables.death_less_than_60
+    elif age < 70:
+        return variables.death_less_than_70
+    elif age < 80:
+        return variables.death_less_than_80
     else:
-        return 0.148
-
-
-probability_of_wearing_mask = 0.9
+        return variables.death_more_than_80
 
 
 def get_infection_probability(wears_mask):
     if wears_mask:
-        return 0.3
+        return variables.probability_of_spread_wearing_mask
     else:
-        return 0.9
+        return variables.probability_of_spread_not_wearing_mask
 
 
 class Person:
-    def __init__(self, start_x, start_y, id_number):
+    def __init__(self, start_x, start_y, id_number, to_print=False):
         self.id_number = id_number
 
         # Personal attributes
         self.gender = choice(["male", "female"])
         self.firstname = get_first_name(self.gender)
         self.surname = get_last_name()
-        self.age = randint(18, 70)
+        self.age = randint(variables.minimum_age,
+                           variables.maximum_age)
 
         # Habitual attributes
         self.wears_mask = choices(population=[True, False],
-                                  cum_weights=[probability_of_wearing_mask, 1 - probability_of_wearing_mask],
+                                  cum_weights=[variables.probability_of_wearing_mask,
+                                               1 - variables.probability_of_wearing_mask],
                                   k=1)[0]
 
-        self.probability_of_infecting = get_infection_probability(
-            self.wears_mask)  # TODO: Add variable infectivity depending on e.g maskwearer
-        self.probability_of_death = get_death_probability(
-            self.age)  # TODO: Add probability of death depending on gender
+        self.probability_of_infecting = get_infection_probability(self.wears_mask)  # TODO: Add variable infection rate depending on e.g wears a mask
+        self.probability_of_death = get_death_probability(self.age)  # TODO: Add probability of death depending on gender
 
         # Position of person
         self.x = start_x
@@ -63,6 +65,8 @@ class Person:
 
         self.generation_infected = None
         self.generation_immune = None
+
+        self.to_print = to_print
 
     def __repr__(self):
         return colored(self.firstname, self.condition.get_colour())
@@ -79,40 +83,55 @@ class Person:
 
     # Person methods to change the condition
     def infected(self, generation):
-        if self.condition.state != "INFECTED":
-            self.generation_infected = generation
-            self.condition.becomes_infected()
-            #print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ")", "has been infected in generation", str(generation)+".")
+        self.generation_infected = generation
+        self.condition.becomes_infected()
+        print_if(self.to_print, self.firstname + " " + self.surname + " (ID:" + str(
+            self.id_number) + ") has been infected in generation " + str(generation) + ".")
 
     def dies(self, generation):
         self.condition.dies()
-        #print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ") has died, age", str(self.age) + ", in generation", str(generation)+".")
+        print_if(self.to_print,
+                 self.firstname + " " + self.surname + " (ID:" + str(self.id_number) + ") has died, age " + str(
+                     self.age) + ", in generation " + str(generation) + ".")
+        return self
 
     def recover(self, generation):
+        self.generation_immune = generation
         self.condition.recover()
-        #print(self.firstname, self.surname, "(ID:" + str(self.id_number) + ")" + ", age", str(self.age) + ", is now immune as of generation", str(generation)+".")
+        print_if(self.to_print,
+                 self.firstname + " " + self.surname + " (ID:" + str(self.id_number) + ")" + ", age " + str(
+                     self.age) + ", is now immune as of generation " + str(generation) + ".")
+        return self
+
+    def immunity_wears(self, generation):
+        self.condition.immunity_wears()
+        print_if(self.to_print, self.firstname + " " + self.surname + " (ID:" + str(self.id_number) + "), age " + str(
+            self.age) + ", is no longer immune as of generation " + str(generation) + ".")
+        return self
 
     # Boolean variables to test the state
     def is_infected(self):
-        return self.condition.state == "INFECTED"
+        return self.condition.is_infected
 
     def is_dead(self):
-        return self.condition.state == "DEAD"
+        return self.condition.is_dead
 
     def is_healthy(self):
-        return self.condition.state == "HEALTHY"
+        return self.condition.is_healthy
 
     def is_immune(self):
-        return self.condition.state == "IMMUNE"
+        return self.condition.is_immune
 
-    # Methods to infect or kill a person
+    # Methods to infect or have a person die
     def maybe_infect(self, neighbour, generation):
         c = choices(population=["infect", "nothing"],
                     cum_weights=[self.probability_of_infecting, 1 - self.probability_of_infecting],
                     k=1)[0]
         if c == "infect":
             neighbour.infected(generation)  # Fine to infect both if one is already infected
-            self.infected(generation)
+            return neighbour
+        else:
+            return None
 
     def maybe_die(self, generation):
         c = choices(population=["dies", "nothing"],
@@ -120,3 +139,6 @@ class Person:
                     k=1)[0]
         if c == "dies":
             self.dies(generation)
+            return self
+        else:
+            return None
