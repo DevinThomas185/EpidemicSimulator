@@ -29,11 +29,18 @@ def get_death_probability(age):
         return variables.death_more_than_80
 
 
-def get_infection_probability(wears_mask):
+def get_infection_spread_probability(wears_mask):
     if wears_mask:
         return variables.probability_of_spread_wearing_mask
     else:
         return variables.probability_of_spread_not_wearing_mask
+
+
+def get_infection_catch_probability(wears_mask):
+    if wears_mask:
+        return variables.probability_of_catching_wearing_mask
+    else:
+        return variables.probability_of_catching_not_wearing_mask
 
 
 class Person:
@@ -44,8 +51,18 @@ class Person:
         self.gender = choice(["male", "female"])
         self.firstname = get_first_name(self.gender)
         self.surname = get_last_name()
+
+        # Disease dependent attributes
         self.age = randint(variables.minimum_age,
                            variables.maximum_age)
+        self.has_cardiovascular_disease = False
+        self.has_diabetes = False
+        self.has_chronic_respiratory_disease = False
+        self.has_hypertension = False
+        self.has_cancer = False
+        self.had_prior_stroke = False
+        self.has_heart_disease = False
+        self.has_chronic_kidney_disease = False
 
         # Habitual attributes
         self.wears_mask = choices(population=[True, False],
@@ -53,8 +70,9 @@ class Person:
                                                1 - variables.probability_of_wearing_mask],
                                   k=1)[0]
 
-        self.probability_of_infecting = get_infection_probability(self.wears_mask)  # TODO: Add variable infection rate depending on e.g wears a mask
-        self.probability_of_death = get_death_probability(self.age)  # TODO: Add probability of death depending on gender
+        self.probability_of_infection_spread = get_infection_spread_probability(self.wears_mask)
+        self.probability_of_infection_catching = get_infection_catch_probability(self.wears_mask)
+        self.probability_of_death = get_death_probability(self.age)
 
         # Position of person
         self.x = start_x
@@ -123,9 +141,13 @@ class Person:
         return self.condition.is_immune
 
     # Methods to infect or have a person die
+    def probability_of_spreading_to(self, neighbour):
+        return self.probability_of_infection_spread * neighbour.probability_of_infection_catching
+
     def maybe_infect(self, neighbour, generation):
+        p = self.probability_of_spreading_to(neighbour)
         c = choices(population=["infect", "nothing"],
-                    cum_weights=[self.probability_of_infecting, 1 - self.probability_of_infecting],
+                    cum_weights=[p, 1 - p],
                     k=1)[0]
         if c == "infect":
             neighbour.infected(generation)  # Fine to infect both if one is already infected
