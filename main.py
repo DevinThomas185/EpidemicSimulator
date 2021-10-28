@@ -1,11 +1,11 @@
 from environment import Environment
 
-env = Environment(x=30, y=30, to_print=False)
+env = Environment(x=30, y=30, to_print=True)
 env.populate(n=500)
 
 env.print_start()
-env.generate_n(365)
-env.plot()
+env.generate_n(100)
+env.plot("all")
 env.print_statistics()
 
 
@@ -17,5 +17,4 @@ env.print_statistics()
 # TODO: Add households / close contact spread
 # TODO: Add probability of death depending on gender
 # TODO: Add variable infection rate depending on e.g wears a mask
-# TODO: Only check healthy people around the infected people
 # TODO: Add Testing Procedures

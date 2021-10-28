@@ -1,10 +1,11 @@
+from datetime import datetime, timedelta
 from person import Person, print_if
 from random import randint
-import matplotlib.pyplot as plt
-import seaborn as sns
-import variables
+import numpy as np
+import plot
+import testing
 import time
-from datetime import datetime, timedelta
+from variables import *
 
 # Global variables for spacing printing
 spaces_per_square = 12
@@ -13,13 +14,11 @@ end_spaces = 50
 
 # Static helper methods
 def max_difference(array):
-    value_minimum = array[0]
     difference_max = 0
-    for i in range(len(array)):
-        if array[i] < value_minimum:
-            value_minimum = array[i]
-        elif array[i] - value_minimum > difference_max:
-            difference_max = array[i] - value_minimum
+    for i in range(len(array) - 1):
+        diff = array[i + 1] - array[i]
+        if diff > difference_max:
+            difference_max = diff
     return difference_max
 
 
@@ -29,12 +28,6 @@ def seven_day_average(array):
         res.append(sum(array[:7]) / 7)
         array = array[7:]
     return max_difference(res)
-
-
-def update_lists(add_to, remove_from, person):
-    if person is not None:
-        add_to.add(person)
-        remove_from.remove(person)
 
 
 def format_date(date):
@@ -52,15 +45,16 @@ class Environment:
         self.start_date = start_date
         self.generation = 0
 
-        self.distance_to_infect = variables.distance_to_infect  # In squares
-        self.immunity_lasts_for = variables.immunity_lasts_for  # Generations
-        self.infection_lasts_for = variables.infection_lasts_for  # Generations
+        self.distance_to_infect = distance_to_infect  # In squares
+        self.immunity_lasts_for = immunity_lasts_for  # Generations
+        self.infection_lasts_for = infection_lasts_for  # Generations
 
         # Sets to iterate through
         self.those_healthy = set()
         self.those_infected = set()
         self.those_immune = set()
         self.those_dead = set()
+        self.those_isolating = set()
 
         # If want to print interim results and generations
         self.to_print = to_print
@@ -73,7 +67,7 @@ class Environment:
 
     # Move a person in the environment
     def move(self, person):
-        z = variables.maximum_squares_to_move
+        z = maximum_squares_to_move
         end_x = person.x + randint(-z, z)
         end_y = person.y + randint(-z, z)
         if 0 <= end_y < self.y_length and 0 <= end_x < self.x_width:
@@ -89,8 +83,9 @@ class Environment:
                 if 0 <= i < self.x_width and 0 <= j < self.y_length:
                     p = self.positions[j][i]
                     if p is not None and p.is_healthy():
-                        if self.positions[person.y][person.x].distance_to(p) <= self.distance_to_infect:
-                            healthy_people.append(p)
+                        if not person.is_isolating and not p.is_isolating:
+                            if self.positions[person.y][person.x].distance_to(p) <= self.distance_to_infect:
+                                healthy_people.append(p)
         return healthy_people
 
     # Populate the environment with people
@@ -108,7 +103,6 @@ class Environment:
                 n -= 1
                 added += 1
         self.people[0].condition.becomes_infected()  # infect first victim
-
         self.those_infected.add(self.people[0])
         self.those_healthy.update([x for x in self.people if x.is_healthy()])
 
@@ -117,13 +111,23 @@ class Environment:
         x = [person for person in self.people if person.condition.state == stat]
         return x, len(x)
 
-    def current_date(self):
-        return self.start_date + timedelta(days=self.generation)
+    def get_current_date(self):
+        return (self.start_date + timedelta(days=self.generation)).strftime("%d %B %Y")
+
+    def update_lists(self, add_to, remove_from, person):
+        if person is not None:
+            add_to.add(person)
+            remove_from.remove(person)
+            if add_to == self.those_dead:
+                self.remove_from_positions(person)
+
+    def remove_from_positions(self, person):
+        self.positions[person.y][person.x] = None
 
     # Print methods
     def print(self):
         print("Current Generation:", self.generation)
-        print("Date:", format_date(self.current_date()))
+        print("Date:", self.get_current_date())
         for row in self.positions:
             for name in row:
                 if name is None:
@@ -136,8 +140,8 @@ class Environment:
 
     def print_start(self):
         print("\n" + "-" * end_spaces)
-        print("Simulation Set Up for %s" % variables.disease_name)
-        print("Beginning simulation on %s" % format_date(self.current_date()))
+        print("Simulation Set Up for %s" % disease_name)
+        print("Beginning simulation on %s" % self.get_current_date())
         print("There are %i people in the simulation." % len(self.people), end=" ")
         if self.to_print:
             print_if(self.to_print, "They are:\n")
@@ -168,31 +172,45 @@ class Environment:
     def print_statistics(self):
         print("-" * end_spaces)
         print("Generation Statistics at Generation %i" % self.generation)
-        print("Date:", format_date(self.current_date()), "\n")
+        print("Date:", self.get_current_date(), "\n")
 
-        print("%i Healthy People" % len(self.those_healthy))
-        print("%i Infected People" % len(self.those_infected))
-        print("%i Dead People" % len(self.those_dead))
-        print("%i Immune People\n" % len(self.those_immune))
+        print("%i Healthy" % len(self.those_healthy))
+        print("%i Infected" % len(self.those_infected))
+        print("%i Dead" % len(self.those_dead))
+        print("%i Immune\n" % len(self.those_immune))
 
         dead_percent = len(self.those_dead) * 100 / len(self.people)
         print("%.2f%% of people were killed" % dead_percent)
 
         max_deaths = max_difference(self.dead_over_time)
         print("There was a high of %i deaths in one day" % max_deaths)
-        avg_deaths = seven_day_average(self.dead_over_time)
+        x = list(self.dead_over_time)
+        avg_deaths = seven_day_average([t - s for s, t in zip(x, x[1:])])
         print("There was a high of %i deaths on average over 7 days\n" % avg_deaths)
 
         max_infections = max_difference(self.infected_over_time)
         print("There was a high of %i infections in one day" % max_infections)
-        avg_infections = seven_day_average(self.infected_over_time)
-        print("There was a high of %i deaths on average over 7 days\n" % avg_infections)
+        x = list(self.infected_over_time)
+        avg_infections = seven_day_average([t - s for s, t in zip(x, x[1:])])
+        print("There was a high of %i infections on average over 7 days\n" % avg_infections)
+
+        if len(self.those_dead) > 0:
+            avg_age_of_dead = sum([s.age for s in self.those_dead]) / len(self.those_dead)
+            print("The average age of those who died was %i" % avg_age_of_dead)
+            youngest_death = min([s.age for s in self.those_dead])
+            print("The youngest death was %i" % youngest_death)
+            oldest_death = max([s.age for s in self.those_dead])
+            print("The oldest death was %i\n" % oldest_death)
+        if len(self.those_healthy) > 0:
+            avg_age_of_healthy = sum([s.age for s in self.those_healthy]) / len(self.those_healthy)
+            print("The average age of those who were still healthy was %i\n" % avg_age_of_healthy)
 
         try:
             eradication = self.infected_over_time.index(0)
-            print(variables.disease_name, "was eradicated in generation", eradication)
+            print(disease_name + " was eradicated in generation " + str(eradication)
+                  + " on " + format_date(self.start_date + timedelta(eradication)))
         except ValueError:
-            print(variables.disease_name, "was not eradicated")
+            print(disease_name, "was not eradicated")
 
         print("-" * end_spaces)
 
@@ -204,69 +222,61 @@ class Environment:
         self.generation += 1
 
         # Infect people
-        for person in self.those_infected.copy():
+        print(self.those_isolating)
+        for person in self.those_infected.copy() - self.those_isolating:
             for neighbour in self.healthy_people_in_proximity(person):
                 if person.distance_to(neighbour) <= self.distance_to_infect:
-                    update_lists(add_to=self.those_infected,
-                                 remove_from=self.those_healthy,
-                                 person=person.maybe_infect(neighbour, self.generation))
+                    self.update_lists(add_to=self.those_infected,
+                                      remove_from=self.those_healthy,
+                                      person=person.maybe_infect(neighbour, self.generation))
 
             # Determine if a person dies
-            update_lists(add_to=self.those_dead,
-                         remove_from=self.those_infected,
-                         person=person.maybe_die(self.generation))
+            self.update_lists(add_to=self.those_dead,
+                              remove_from=self.those_infected,
+                              person=person.maybe_die(self.generation))
 
             # Check whether a person has recovered and hasn't already died
             if self.generation - self.infection_lasts_for == person.generation_infected and not person.is_dead():
-                update_lists(add_to=self.those_immune,
-                             remove_from=self.those_infected,
-                             person=person.recover(self.generation))
+                self.update_lists(add_to=self.those_immune,
+                                  remove_from=self.those_infected,
+                                  person=person.recover(self.generation))
 
         # Check whether a person has had their immunity worn off
         for person in self.those_immune.copy():
             if self.generation - self.immunity_lasts_for == person.generation_immune:
-                update_lists(add_to=self.those_healthy,
-                             remove_from=self.those_immune,
-                             person=person.immunity_wears(self.generation))
+                self.update_lists(add_to=self.those_healthy,
+                                  remove_from=self.those_immune,
+                                  person=person.immunity_wears(self.generation))
+
+        # testing.procedure(self.people, 500, self)  # Test 10 people
+
+        # Add data for statistics
+        self.healthy_over_time.append(self.calculate_statistics("HEALTHY")[1])
+        self.immune_over_time.append(self.calculate_statistics("IMMUNE")[1])
+        self.infected_over_time.append(self.calculate_statistics("INFECTED")[1])
+        self.dead_over_time.append(self.calculate_statistics("DEAD")[1])
 
     def generate_n(self, n):
-        print("Simulating %i generations\n" % n)
+        print("Simulating %i generations starting on %s\n" % (n, self.get_current_date()))
         start_time = time.time()
+
         for i in range(n):
             self.generate_one()
-
-            self.healthy_over_time.append(self.calculate_statistics("HEALTHY")[1])
-            self.immune_over_time.append(self.calculate_statistics("IMMUNE")[1])
-            self.infected_over_time.append(self.calculate_statistics("INFECTED")[1])
-            self.dead_over_time.append(self.calculate_statistics("DEAD")[1])
-
             if self.to_print:
                 self.print()
 
-        print("\nSimulation Complete")
-        print("Execution took: %.5f seconds" % (time.time() - start_time))
+        print("Simulation ended on generation %i on %s" % (self.generation, self.get_current_date()))
+        print("Execution took %.5f seconds" % (time.time() - start_time))
         print("-" * end_spaces + "\n")
 
-    def plot(self):
-        x_range = range(self.generation)
-
-        palette = sns.color_palette("Set1")
-        plt.stackplot(x_range,
-                      self.healthy_over_time,
-                      self.infected_over_time,
-                      self.dead_over_time,
-                      self.immune_over_time,
-                      labels=["Healthy", "Infected", "Dead", "Immune"],
-                      colors=palette,
-                      alpha=0.4)
-        plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
-
-        plt.xlabel("Generations")
-        plt.ylabel("People")
-        plt.title("Spread of epidemic over time")
-
-        plt.tight_layout()
-        plt.show()
-
-        # self.print()
-        # self.print_status()
+    def plot(self, plot_type):
+        if plot_type == "stacked":
+            plot.stacked(self)
+        if plot_type == "line":
+            plot.line(self)
+        if plot_type == "pie":
+            plot.pie(self)
+        if plot_type == "all":
+            plot.stacked(self)
+            plot.line(self)
+            plot.pie(self)

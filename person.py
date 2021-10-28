@@ -1,6 +1,7 @@
 from termcolor import colored
 from state import State
 from names import get_first_name, get_last_name
+import numpy as np
 from random import randint, choice, choices
 import variables
 
@@ -10,23 +11,31 @@ def print_if(to_print, statement):
         print(statement)
 
 
+def get_random_age():
+    age = -1
+    while not variables.minimum_age < age < variables.maximum_age:
+        age = np.random.normal(loc=40.1,
+                               scale=25)
+    return round(age)
+
+
 def get_death_probability(age):
     if age < 20:
-        return variables.death_less_than_20
+        return variables.probability_of_death_less_than_20
     elif age < 30:
-        return variables.death_less_than_30
+        return variables.probability_of_death_less_than_30
     elif age < 40:
-        return variables.death_less_than_40
+        return variables.probability_of_death_less_than_40
     elif age < 50:
-        return variables.death_less_than_50
+        return variables.probability_of_death_less_than_50
     elif age < 60:
-        return variables.death_less_than_60
+        return variables.probability_of_death_less_than_60
     elif age < 70:
-        return variables.death_less_than_70
+        return variables.probability_of_death_less_than_70
     elif age < 80:
-        return variables.death_less_than_80
+        return variables.probability_of_death_less_than_80
     else:
-        return variables.death_more_than_80
+        return variables.probability_of_death_more_than_80
 
 
 def get_infection_spread_probability(wears_mask):
@@ -48,13 +57,15 @@ class Person:
         self.id_number = id_number
 
         # Personal attributes
-        self.gender = choice(["male", "female"])
+        self.gender = choices(population=["female", "male"],
+                              cum_weights=[variables.probability_of_female, 1 - variables.probability_of_female],
+                              k=1)[0]
         self.firstname = get_first_name(self.gender)
         self.surname = get_last_name()
 
         # Disease dependent attributes
-        self.age = randint(variables.minimum_age,
-                           variables.maximum_age)
+        self.age = get_random_age()
+
         self.has_cardiovascular_disease = False
         self.has_diabetes = False
         self.has_chronic_respiratory_disease = False
@@ -80,9 +91,11 @@ class Person:
 
         # Initial condition of person
         self.condition = State()
+        self.is_isolating = False
 
         self.generation_infected = None
         self.generation_immune = None
+        self.number_infected = 0
 
         self.to_print = to_print
 
@@ -126,6 +139,12 @@ class Person:
         print_if(self.to_print, self.firstname + " " + self.surname + " (ID:" + str(self.id_number) + "), age " + str(
             self.age) + ", is no longer immune as of generation " + str(generation) + ".")
         return self
+
+    def begin_isolating(self):
+        self.is_isolating = True
+
+    def finish_isolating(self):
+        self.is_isolating = False
 
     # Boolean variables to test the state
     def is_infected(self):
