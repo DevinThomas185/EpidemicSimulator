@@ -17,9 +17,9 @@ This project is an Epidemic Simulator with many variables that can be adjusted:
 Parameters can be adjusted in order to analyse the effects of the change on a pandemic. This can aid in learning about the best strategies in order to control the epidemic better.
 
 After simulating the epidemic, graphs and charts are produced to analyse the spread of the infection as well as the 
-![Example Pie Chart](https://github.com/DevinThomas185/EpidemicSimulator/exampleChart.png)
-![Example Line Graph](https://github.com/DevinThomas185/EpidemicSimulator/exampleLine.png)
-![Example Stack Chart](https://github.com/DevinThomas185/EpidemicSimulator/exampleStack.png)
+![Example Pie Chart](https://github.com/DevinThomas185/EpidemicSimulator/blob/master/exampleChart.png)
+![Example Line Graph](https://github.com/DevinThomas185/EpidemicSimulator/blob/master/exampleLine.png)
+![Example Stack Chart](https://github.com/DevinThomas185/EpidemicSimulator/blob/master/exampleStack.png)
 
 
 
